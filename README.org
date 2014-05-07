@@ -8,6 +8,8 @@ activates/moves to form field or pushes button.
 *eww-lnum-universal* activates numbering and offers appropriate
 actions for the selection.
 
+[[https://www.youtube.com/watch?v=BKc3vgZH5ZE][Screencast]] (use the highest video quality)
+
 * Setup
 
 Here's example how to assign key bindings for the above commands:
