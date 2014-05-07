@@ -1,0 +1,14 @@
+This is extension to the Emacs browser [[http://www.emacswiki.org/emacs/eww][eww]] that adds to it [[http://conkeror.org][conkeror]]
+like functionality[1].  More specifically, the following commands are
+provided:
+
+*eww-lnum-follow* activates numbering and visits selected link,
+activates/moves to form field or pushes button.
+
+*eww-lnum-universal* activates numbering and offers appropriate
+actions for the selection.
+
+[1] In short, currently visible links, forms, buttons are temporarily assigned
+numbers with which the former can be immediately activated.  Also
+filtering can be applied so selection can be incrementally confined in
+[[http://www.emacswiki.org/emacs/IncrementalSearch][Isearch]] manner.
