@@ -1,10 +1,11 @@
 ;;; eww-lnum.el --- Operations using link numbers  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2014 Free Software Foundation, Inc.
+;; Copyright (C) 2014 Andrey Kotlarski <m00naticus@gmail.com>
 
-;; Author: Andrey Kotlarski <m00naticus@gmail.com>
-;; Keywords: eww, browse, conkeror
 ;; Version: 1.0
+;; Keywords: eww, browse, conkeror
+;; Author: Andrey Kotlarski <m00naticus@gmail.com>
+;; URL: https://github.com/m00natic/eww-lnum
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -23,16 +24,17 @@
 
 ;;; Commentary:
 
-;; This file provides a minor mode to enable Conkeror style operations
-;; using link numbers:
+;; This package extends the EWW browser with Conkeror style operations:
 ;; `eww-lnum-follow' for visiting links, form fields or pushing buttons;
-;; `eww-lnum-universal' for selecting whatever element and then
-;; providing relevant options.
+;; `eww-lnum-universal' for selecting element and then providing
+;; relevant options.
 
 ;;; Usage:
 
-;; (add-hook 'eww-mode-hook 'eww-lnum-mode)
-;; or just use interactive command `eww-lnum-mode' to toggle mode.
+;; Example setup:
+;; (eval-after-load "eww"
+;;   '(progn (define-key eww-mode-map "f" 'eww-lnum-follow)
+;;           (define-key eww-mode-map "F" 'eww-lnum-universal)))
 
 ;;; Code:
 
