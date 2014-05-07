@@ -38,9 +38,17 @@
 
 (require 'eww)
 
-(defcustom eww-lnum-mode-hook nil
-  "Hook run after command `eww-lnum-mode' initialization."
-  :group 'eww :type 'hook)
+(defface eww-lnum-number
+  '((((class color grayscale) (min-colors 88) (background light))
+     :foreground "grey50")
+    (((class color grayscale) (min-colors 88) (background dark))
+     :foreground "grey70")
+    (((class color) (min-colors 8) (background light))
+     :foreground "green")
+    (((class color) (min-colors 8) (background dark))
+     :foreground "yellow"))
+  "Face used for item numbers."
+  :group 'eww)
 
 (defcustom eww-lnum-quick-browsing 'quick-numbers
   "If non-nil, do aggressive selection.  Possible values are:
@@ -55,7 +63,7 @@
 (defcustom eww-lnum-context-alist
   '(("news.ycombinator.com" . 2) ("reddit.com" . 1))
   "Alist specifying number of additional items to be numbered after \
-filtering over an url being matched by the car."
+filtering for particular url."
   :group 'eww :type 'alist)
 
 (defvar eww-lnum-actions-custom-type
@@ -95,23 +103,6 @@ filtering over an url being matched by the car."
   "Alist specifying keycodes and available actions over a selected button."
   :group 'eww :type eww-lnum-actions-custom-type)
 
-(defvar eww-lnum-mode-map nil
-  "Keymap used when command `eww-lnum-mode' is active.")
-(unless eww-lnum-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "f" 'eww-lnum-follow)
-    (define-key map "F" 'eww-lnum-universal)
-    (setq eww-lnum-mode-map map)))
-
-(defvar eww-lnum-mode nil
-  "Non-nil if eww operations using link numbers are enabled.")
-(make-variable-buffer-local 'eww-lnum-mode)
-(unless (assq 'eww-lnum-mode minor-mode-alist)
-  (push (list 'eww-lnum-mode "[ln]") minor-mode-alist))
-(unless (assq 'eww-lnum-mode minor-mode-map-alist)
-  (push (cons 'eww-lnum-mode eww-lnum-mode-map)
-        minor-mode-map-alist))
-
 (defun eww-lnum-remove-overlays (&optional start end)
   "Remove numbering and match overlays between START and END points.
 If missing, clear the current visible window."
@@ -126,43 +117,12 @@ If missing, clear the current visible window."
               (overlay-get overlay 'eww-lnum-match))
           (delete-overlay overlay)))))
 
-;;;###autoload
-(defun eww-lnum-mode (&optional arg)
-  "Minor mode to extend point commands by using Conkeror style number selection.
-With prefix ARG 0 disable battery included point functions, otherwise
-enable them.  With no prefix ARG - toggle."
-  (interactive "P")
-  (let ((eww-lnum-status eww-lnum-mode))
-    ;; find current numbering status of eww buffers
-    (or (derived-mode-p 'eww-mode)
-        (save-current-buffer
-          (setq eww-lnum-status
-                (catch 'found-eww
-                  (dolist (buf (buffer-list))
-                    (set-buffer buf)
-                    (if (derived-mode-p 'eww-mode)
-                        (throw 'found-eww eww-lnum-mode)))))))
-    (setq arg (not (if arg (zerop arg) eww-lnum-status)))
-    (unless (eq arg eww-lnum-status)	; if change of mode status
-      (if arg
-          (progn (add-hook 'eww-mode-hook 'eww-lnum-mode)
-                 (run-hooks 'eww-lnum-mode-hook)
-                 (message "Link numbering keys on"))
-        (remove-hook 'eww-mode-hook 'eww-lnum-mode)
-        (message "Link numbering keys off"))
-      ;; change numbering status of all eww buffers
-      (save-current-buffer
-        (dolist (buf (buffer-list))
-          (set-buffer buf)
-          (if (derived-mode-p 'eww-mode)
-              (setq eww-lnum-mode arg)))))))
-
 (defmacro eww-lnum-set-overlay (pos index)
   "Set numbering overlay at POS with INDEX."
   `(let ((overlay (make-overlay ,pos (1+ ,pos))))
      (let ((num (format "[%d]" (setq ,index (1+ ,index)))))
        (overlay-put overlay 'before-string num)
-       (add-text-properties 0 (length num) '(face shadow) num)
+       (add-text-properties 0 (length num) '(face eww-lnum-number) num)
        (overlay-put overlay 'evaporate t))
      (overlay-put overlay 'eww-lnum-overlay ,index)))
 
