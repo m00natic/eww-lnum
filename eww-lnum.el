@@ -451,7 +451,8 @@ If EDIT, edit url before visiting."
                          "select field")
            (eww-change-select))
           ((or (string-equal type "submit")
-               (not (plist-get (car info) :eww-form)))
+               (eq (get-text-property (cadr info) 'face)
+                   'eww-form-submit))
            (eww-submit)))))
 
 ;;;###autoload
