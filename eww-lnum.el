@@ -603,10 +603,12 @@ pressing <return> over the action line or left clicking."
                          (if (or (string-equal type "checkbox")
                                  (string-equal type "radio")
                                  (string-equal type "submit")
+                                 (eq (get-text-property (cadr info)
+                                                        'face)
+                                     'eww-form-submit)
                                  (string-equal (get-text-property
                                                 (cadr info) 'help-echo)
-                                               "select field")
-                                 (not (plist-get action :eww-form)))
+                                               "select field"))
                              (eww-lnum-universal-dispatch ; button
                               info label
                               eww-lnum-actions-button-alist)
