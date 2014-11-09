@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2014 Andrey Kotlarski <m00naticus@gmail.com>
 
-;; Version: 1.0
+;; Version: 1.1
 ;; Keywords: eww, browse, conkeror
 ;; Author: Andrey Kotlarski <m00naticus@gmail.com>
 ;; URL: https://github.com/m00natic/eww-lnum
@@ -89,11 +89,11 @@ filtering for particular url."
     (?f eww-lnum-visit "Visit")
     (?e (lambda (info) (eww-lnum-visit info t)) "Edit and visit")
     (?d (lambda (info) (save-excursion
-                    (goto-char (cadr info))
-                    (eww-download))) "Download")
+                         (goto-char (cadr info))
+                         (eww-download))) "Download")
     (?w (lambda (info) (let ((url (car info)))
-                    (kill-new url)
-                    (message url)))
+                         (kill-new url)
+                         (message url)))
         "Copy")
     (?& (lambda (info) (eww-browse-with-external-browser (car info)))
         "Open in external browser"))
@@ -185,6 +185,25 @@ If POS is not given, start from current point."
                (setq pos (next-single-property-change pos 'help-echo))))
       pos
     (point-max)))
+
+(defun eww-lnum-next-filter (next-func filter)
+  "Search next element according to NEXT-FUNC and FILTER.
+If such element is found, return its position.  Nil otherwise."
+  (setq filter
+        (eww-lnum-replace-regexps-in-string ; escape special characters
+         filter "\\?" "\\\\?" "\\!" "\\\\!" "\\[" "\\\\["
+         "\\*" "\\\\*" "\\+" "\\\\+" "\\." "\\\\." "\\^" "\\\\^"
+         "\\$" "\\\\$"))
+  (let* ((pmax (point-max))
+         (pos (min (window-end) pmax)))
+    (catch 'found
+      (while (and pos (setq pos (funcall next-func pos))
+                  (< pos pmax))
+        (if (string-match-p filter (buffer-substring-no-properties
+                                    pos (or (next-single-property-change
+                                             pos 'help-echo)
+                                            pmax)))
+            (throw 'found pos))))))
 
 (defun eww-lnum (&optional filter dont-clear-p)
   "Make overlays that display link numbers.  Return last used index.
@@ -319,20 +338,24 @@ Return list of selected number and last applied filter."
                                   ((and (< 67108911 ch) ;treat <ctrl>+DIGIT
                                         (< ch 67108922))
                                    (- ch 67108864)) ; as DIGIT
-                                  (t ch))))
-                (setq last-index (eww-lnum (setq filter
-                                                 (concat filter ch))))
+                                  (t ch)))
+                      filter (concat filter ch)
+                      last-index (eww-lnum filter))
                 (if (and (= last-index 1)
                          (memq eww-lnum-quick-browsing
                                '(quick-all quick-filter)))
                     (throw 'select (setq num 1))
-                  (if (zerop last-index) ; filter left nothing, remove new char
-                      (setq last-index
-                            (eww-lnum
-                             (setq filter (substring-no-properties
-                                           filter 0
-                                           (1- (length filter))))
-                             t)))
+                  (when (zerop last-index) ; filter left nothing, search further
+                    (let ((pos (eww-lnum-next-filter 'eww-lnum-next
+                                                     filter)))
+                      (when pos
+                        (goto-char pos)
+                        (redisplay)
+                        (setq last-index (eww-lnum filter t))))
+                    (if (zerop last-index) ; search found nothing, remove new char
+                        (setq filter (substring-no-properties
+                                      filter 0 (1- (length filter)))
+                              last-index (eww-lnum filter t))))
                   (setq num 1
                         auto-num t
                         temp-prompt
