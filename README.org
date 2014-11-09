@@ -1,5 +1,5 @@
-This is extension to the Emacs browser [[http://www.emacswiki.org/emacs/eww][eww]] that adds to it [[http://conkeror.org][conkeror]]
-like functionality[1].  More specifically, the following commands are
+This is extension to the Emacs browser [[http://www.emacswiki.org/emacs/eww][eww]] that adds [[http://conkeror.org][conkeror]] like
+functionality[1].  More specifically, the following commands are
 provided:
 
 *eww-lnum-follow* activates numbering and visits selected link,
@@ -14,11 +14,11 @@ actions for the selection.
 
 Here's example how to assign key bindings for the above commands:
 
-#+BEGIN_EXAMPLE
-(eval-after-load "eww"
-  '(progn (define-key eww-mode-map "f" 'eww-lnum-follow)
-          (define-key eww-mode-map "F" 'eww-lnum-universal)))
-#+END_EXAMPLE
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "eww"
+    '(progn (define-key eww-mode-map "f" 'eww-lnum-follow)
+            (define-key eww-mode-map "F" 'eww-lnum-universal)))
+#+END_SRC
 
 * Customize
 
@@ -40,20 +40,20 @@ Actions offered after "universal" selection are determined by
 radio) variables.  Here's example how to add Curl integration to
 download links (this is actualy built-in):
 
-#+BEGIN_EXAMPLE
-(setq eww-lnum-actions-link-alist
-      (append eww-lnum-actions-link-alist
-              '((?D (lambda (info)
-                      (let ((olddir default-directory))
-                        (cd (read-directory-name
-                             "Save to: " eww-download-directory
-                             nil t))
-                        (shell-command
-                         (concat "curl -k -O '" (car info) "' &")
-                         "*Curl*")
-                        (cd olddir)))
-                    "Download with Curl"))))
-#+END_EXAMPLE
+#+BEGIN_SRC emacs-lisp
+  (setq eww-lnum-actions-link-alist
+        (append eww-lnum-actions-link-alist
+                '((?D (lambda (info)
+                        (let ((olddir default-directory))
+                          (cd (read-directory-name
+                               "Save to: " eww-download-directory
+                               nil t))
+                          (shell-command
+                           (concat "curl -k -O '" (car info) "' &")
+                           "*Curl*")
+                          (cd olddir)))
+                      "Download with Curl"))))
+#+END_SRC
 
 ** Use link numbering to create new commands
 
@@ -61,14 +61,14 @@ The *eww-lnum-get-action* function can be used to invoke numbering
 with all filtering, bells and whistles and return what the user has
 chosen.  Here's example:
 
-#+BEGIN_EXAMPLE
-(eww-lnum-get-action "Follow: ")
-#+END_EXAMPLE
+#+BEGIN_SRC emacs-lisp
+  (eww-lnum-get-action "Follow: ")
+#+END_SRC
 
 If returned is not nil, it has the following form:
 
 #+BEGIN_EXAMPLE
-(href/eww-form position)
+  (href/eww-form position)
 #+END_EXAMPLE
 
 Look at the usage in *eww-lnum-follow*.
