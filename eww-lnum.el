@@ -106,6 +106,12 @@ filtering for particular url."
   "Alist specifying keycodes and available actions over a selected button."
   :group 'eww :type eww-lnum-actions-custom-type)
 
+(defun eww-lnum-current-url ()
+  "Get current page url."
+  (if (boundp 'eww-current-url)
+      eww-current-url
+    (plist-get eww-data :url)))
+
 (defun eww-lnum-remove-overlays (&optional start end)
   "Remove numbering and match overlays between START and END points.
 If missing, clear the current visible window."
@@ -156,7 +162,7 @@ DONT-CLEAR-P determines whether previous numbering has to be cleared."
           (if (overlay-get overlay 'eww-lnum-overlay)
               (delete-overlay overlay))))
     (let ((index 0)
-          (context (or (assoc-default eww-current-url
+          (context (or (assoc-default (eww-lnum-current-url)
                                       eww-lnum-context-alist
                                       'string-match-p)
                        0)))
@@ -444,18 +450,19 @@ Highlight every intermediate result anchor.
 Input 0 corresponds to location url."
   (eww-with-lnum
    ""
-   (if (zerop last-index)
-       (if (y-or-n-p (concat "No items found. Select default? ["
-                             eww-current-url "] "))
-           (list eww-current-url 0)
-         (keyboard-quit))
-     (let ((num (car (eww-lnum-read-interactive
-                      (or prompt "Anchor number: ")
-                      'eww-lnum-highlight-anchor
-                      last-index eww-current-url))))
-       (if (zerop num)
-           (list eww-current-url 0)
-         (eww-lnum-get-anchor-info num))))))
+   (let ((current-url (eww-lnum-current-url)))
+     (if (zerop last-index)
+         (if (y-or-n-p (concat "No items found. Select default? ["
+                               current-url "] "))
+             (list current-url 0)
+           (keyboard-quit))
+       (let ((num (car (eww-lnum-read-interactive
+                        (or prompt "Anchor number: ")
+                        'eww-lnum-highlight-anchor
+                        last-index current-url))))
+         (if (zerop num)
+             (list current-url 0)
+           (eww-lnum-get-anchor-info num)))))))
 
 (defun eww-lnum-visit (info &optional edit)
   "Visit url determined with selection INFO.
@@ -597,27 +604,28 @@ depending on selection.
 Actions may be selected either by hitting corresponding key,
 pressing <return> over the action line or left clicking."
   (interactive)
-  (let ((filter "")
-        (label eww-current-url)
-        num)
+  (let* ((filter "")
+         (current-url (eww-lnum-current-url))
+         (label current-url)
+         num)
     (while
         (eq 'restart-selection
             (eww-with-lnum
              filter
              (let ((info
                     (if (zerop last-index)
-                        (list eww-current-url 0)
+                        (list current-url 0)
                       (let ((selection (eww-lnum-read-interactive
                                         "Anchor number: "
                                         'eww-lnum-highlight-anchor
-                                        last-index eww-current-url
+                                        last-index current-url
                                         filter
                                         (if (eq num 1) nil num))))
                         (setq num (car selection)
                               filter (cadr selection))
                         (if (zerop num)
-                            (progn (setq label eww-current-url)
-                                   (list eww-current-url 0))
+                            (progn (setq label current-url)
+                                   (list current-url 0))
                           (setq label (eww-lnum-highlight-anchor num))
                           (eww-lnum-get-anchor-info num))))))
                (if info
