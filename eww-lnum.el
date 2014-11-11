@@ -186,16 +186,16 @@ If POS is not given, start from current point."
       pos
     (point-max)))
 
-(defun eww-lnum-next-filter (next-func filter)
+(defun eww-lnum-next-filter (next-func filter pmin pmax)
   "Search next element according to NEXT-FUNC and FILTER.
+Do this in region between points PMIN and PMAX.
 If such element is found, return its position.  Nil otherwise."
   (setq filter
         (eww-lnum-replace-regexps-in-string ; escape special characters
          filter "\\?" "\\\\?" "\\!" "\\\\!" "\\[" "\\\\["
          "\\*" "\\\\*" "\\+" "\\\\+" "\\." "\\\\." "\\^" "\\\\^"
          "\\$" "\\\\$"))
-  (let* ((pmax (point-max))
-         (pos (min (window-end) pmax)))
+  (let ((pos pmin))
     (catch 'found
       (while (and pos (setq pos (funcall next-func pos))
                   (< pos pmax))
@@ -264,16 +264,14 @@ Return list of selected number and last applied filter."
             (cond
              ((memq ch '(backspace 8 127 ?\C-h))
               (if auto-num
-                  (unless (string-equal filter "") ; delete last filter character
-                    (setq num 1
-                          last-index
-                          (eww-lnum
-                           (setq filter
-                                 (substring-no-properties
-                                  filter 0 (1- (length filter)))))
-                          temp-prompt
-                          (eww-lnum-prompt-str num fun prompt
-                                               def-anchor filter "")))
+                  (or (string-equal filter "") ; delete last filter character
+                      (setq num 1
+                            filter (substring-no-properties
+                                    filter 0 (1- (length filter)))
+                            last-index (eww-lnum filter)
+                            temp-prompt
+                            (eww-lnum-prompt-str num fun prompt
+                                                 def-anchor filter "")))
                 (setq num (/ num 10))	; delete last digit
                 (if (zerop num)
                     (setq num 1
@@ -333,7 +331,7 @@ Return list of selected number and last applied filter."
               (setq temp-prompt
                     (eww-lnum-prompt-str num fun prompt def-anchor
                                          filter (if auto-num ""))))
-             (t (setq ch (string (cond
+             (t (setq ch (string (cond  ;append filter character
                                   ((= ch 67108896) 32) ;<ctrl>+SPACE
                                   ((and (< 67108911 ch) ;treat <ctrl>+DIGIT
                                         (< ch 67108922))
@@ -345,9 +343,14 @@ Return list of selected number and last applied filter."
                          (memq eww-lnum-quick-browsing
                                '(quick-all quick-filter)))
                     (throw 'select (setq num 1))
-                  (when (zerop last-index) ; filter left nothing, search further
-                    (let ((pos (eww-lnum-next-filter 'eww-lnum-next
-                                                     filter)))
+                  (when (zerop last-index) ; filter left nothing
+                    (let* ((pmax (point-max))
+                           (pos (or (eww-lnum-next-filter ;search below
+                                     'eww-lnum-next filter
+                                     (min (window-end) pmax) pmax)
+                                    (eww-lnum-next-filter ;search above
+                                     'eww-lnum-next filter
+                                     (point-min) (window-start)))))
                       (when pos
                         (goto-char pos)
                         (redisplay)
