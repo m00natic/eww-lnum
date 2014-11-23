@@ -87,7 +87,9 @@ filtering for particular url."
 (defcustom eww-lnum-actions-link-alist
   '("----  Link   ----"
     (?f eww-lnum-visit "Visit")
-    (?e (lambda (info) (eww-lnum-visit info t)) "Edit and visit")
+    (?e (lambda (info) (eww-lnum-visit info nil t)) "Edit and visit")
+    (?F (lambda (info) (eww-lnum-visit info t)) "Visit in new buffer")
+    (?E (lambda (info) (eww-lnum-visit info t t)) "Edit and visit in new buffer")
     (?d (lambda (info) (save-excursion
                          (goto-char (cadr info))
                          (eww-download))) "Download")
@@ -378,7 +380,8 @@ Return list of selected number and last applied filter."
   "Within TYPE anchor numbering with FILTER execute BODY.
 Otherwise activate numbering, then clear numbering overlays.
 Within BODY, `last-index' is bound to the last used index number."
-  `(let ((original-mode-line-format mode-line-format))
+  `(let ((original-mode-line-format mode-line-format)
+         (buffer (current-buffer)))
      (unwind-protect (progn
                        (setq mode-line-format
                              "RET: select | BACKSPACE: correction | \
@@ -388,8 +391,9 @@ ESC, C-g: quit")
                        (force-mode-line-update)
                        (let ((last-index (eww-lnum ,filter)))
                          ,@body))
-       (setq mode-line-format original-mode-line-format)
-       (eww-lnum-remove-overlays (point-min) (point-max)))))
+       (with-current-buffer buffer
+         (setq mode-line-format original-mode-line-format)
+         (eww-lnum-remove-overlays (point-min) (point-max))))))
 
 (defun eww-lnum-get-point-info (position)
   "Get `help-echo' property for POSITION."
@@ -464,11 +468,27 @@ Input 0 corresponds to location url."
              (list current-url 0)
            (eww-lnum-get-anchor-info num)))))))
 
-(defun eww-lnum-visit (info &optional edit)
+(defun eww-lnum-browse-url (url &optional new-session)
+  "Browse URL in NEW-SESSION."
+  (when new-session
+    (let ((new-buffer "*eww*")
+          (num 0))
+      (while (get-buffer new-buffer)
+        (setq num (1+ num)
+              new-buffer (format "*eww*<%d>" num)))
+      (switch-to-buffer new-buffer))
+    (eww-mode))
+  (eww-browse-url url))
+
+(defun eww-lnum-visit (info &optional new-session edit)
   "Visit url determined with selection INFO.
+If NEW-SESSION, visit in new buffer.
 If EDIT, edit url before visiting."
-  (if edit
-      (eww-browse-url (read-string "Visit url: " (car info)))
+  (if (or new-session edit)
+      (eww-lnum-browse-url (if edit
+                               (read-string "Visit url: " (car info))
+                             (car info))
+                           new-session)
     (goto-char (cadr info))
     (eww-follow-link)))
 
@@ -492,13 +512,16 @@ If EDIT, edit url before visiting."
 (defun eww-lnum-follow (arg)
   "Turn on link numbers, ask for one and execute appropriate action on it.
 If link - visit it; button - press; input - move to it.
-With prefix ARG, modify url before visiting."
+With prefix ARG visit link in new session.
+With double prefix ARG, prompt for url to visit.
+With triple prefix ARG, prompt for url and visit in new session."
   (interactive "p")
   (let ((info (eww-lnum-get-action "Follow: ")))
     (cond ((null info)
            (message "No valid anchor selected"))
           ((stringp (car info))         ; link
-           (eww-lnum-visit info (< 1 arg)))
+           (eww-lnum-visit info (or (= arg 4) (< 16 arg))
+                           (<= 16 arg)))
           (t (eww-lnum-activate-form info)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
