@@ -1,4 +1,4 @@
-;;; eww-lnum.el --- Operations using link numbers  -*- lexical-binding: t -*-
+;;; eww-lnum.el --- Conkeror-like functionality for eww  -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2014 Andrey Kotlarski <m00naticus@gmail.com>
 
@@ -87,15 +87,19 @@ filtering for particular url."
 (defcustom eww-lnum-actions-link-alist
   '("----  Link   ----"
     (?f eww-lnum-visit "Visit")
-    (?e (lambda (info) (eww-lnum-visit info nil t)) "Edit and visit")
+    (?e (lambda (info) (eww-lnum-visit info nil t)) "Edit URL and visit")
     (?F (lambda (info) (eww-lnum-visit info t)) "Visit in new buffer")
-    (?E (lambda (info) (eww-lnum-visit info t t)) "Edit and visit in new buffer")
+    (?E (lambda (info) (eww-lnum-visit info t t))
+        "Edit URL and visit in new buffer")
+    (?b (lambda (info) (eww-lnum-visit info :background)) "Open in background")
+    (?B (lambda (info) (eww-lnum-visit info :background t))
+        "Edit URL and open in background")
     (?d (lambda (info) (save-excursion
-                         (goto-char (cadr info))
-                         (eww-download))) "Download")
+                    (goto-char (cadr info))
+                    (eww-download))) "Download")
     (?w (lambda (info) (let ((url (car info)))
-                         (kill-new url)
-                         (message url)))
+                    (kill-new url)
+                    (message url)))
         "Copy")
     (?& (lambda (info) (eww-browse-with-external-browser (car info)))
         "Open in external browser"))
@@ -157,30 +161,28 @@ DONT-CLEAR-P determines whether previous numbering has to be cleared."
              "\\*" "\\\\*" "\\+" "\\\\+" "\\." "\\\\." "\\^" "\\\\^"
              "\\$" "\\\\$")
           ""))
+  (or dont-clear-p
+      (eww-lnum-remove-overlays))
   (let ((pos (max (1- (window-start)) (point-min)))
-        (pmax (min (window-end) (point-max))))
-    (or dont-clear-p
-        (dolist (overlay (overlays-in pos pmax))
-          (if (overlay-get overlay 'eww-lnum-overlay)
-              (delete-overlay overlay))))
-    (let ((index 0)
-          (context (or (assoc-default (eww-lnum-current-url)
-                                      eww-lnum-context-alist
-                                      'string-match-p)
-                       0)))
-      (while (and pos (setq pos (funcall next-func pos))
-                  (< pos pmax))
-        (when (string-match-p reg (buffer-substring-no-properties
-                                   pos (or (next-single-property-change
-                                            pos 'help-echo)
-                                           (point-max))))
-          (eww-lnum-set-overlay pos index)
-          (let ((counter context))
-            (while (and (>= (setq counter (1- counter)) 0)
-                        (setq pos (funcall next-func pos))
-                        (< pos pmax))
-              (eww-lnum-set-overlay pos index)))))
-      index)))
+        (pmax (min (window-end) (point-max)))
+        (index 0)
+        (context (or (assoc-default (eww-lnum-current-url)
+                                    eww-lnum-context-alist
+                                    'string-match-p)
+                     0)))
+    (while (and pos (setq pos (funcall next-func pos))
+                (< pos pmax))
+      (when (string-match-p reg (buffer-substring-no-properties
+                                 pos (or (next-single-property-change
+                                          pos 'help-echo)
+                                         (point-max))))
+        (eww-lnum-set-overlay pos index)
+        (let ((counter context))
+          (while (and (>= (setq counter (1- counter)) 0)
+                      (setq pos (funcall next-func pos))
+                      (< pos pmax))
+            (eww-lnum-set-overlay pos index)))))
+    index))
 
 (defun eww-lnum-next (&optional pos)
   "Return position of next element to be numbered starting at POS.
@@ -469,20 +471,26 @@ Input 0 corresponds to location url."
            (eww-lnum-get-anchor-info num)))))))
 
 (defun eww-lnum-browse-url (url &optional new-session)
-  "Browse URL in NEW-SESSION."
-  (when new-session
-    (let ((new-buffer "*eww*")
-          (num 0))
-      (while (get-buffer new-buffer)
-        (setq num (1+ num)
-              new-buffer (format "*eww*<%d>" num)))
-      (switch-to-buffer new-buffer))
-    (eww-mode))
-  (eww-browse-url url))
+  "Browse URL in NEW-SESSION.
+Visit in background if NEW-SESSION is :background."
+  (if new-session
+      (let ((new-buffer "*eww*")
+            (num 0))
+        (while (get-buffer new-buffer)
+          (setq num (1+ num)
+                new-buffer (format "*eww*<%d>" num)))
+        (if (eq new-session :background)
+            (with-current-buffer (get-buffer-create new-buffer)
+              (eww-mode)
+              (eww-browse-url url))
+          (switch-to-buffer new-buffer)
+          (eww-mode)
+          (eww-browse-url url)))
+    (eww-browse-url url)))
 
 (defun eww-lnum-visit (info &optional new-session edit)
   "Visit url determined with selection INFO.
-If NEW-SESSION, visit in new buffer.
+Optionally visit in NEW-SESSION, in background if equal to :background.
 If EDIT, edit url before visiting."
   (if (or new-session edit)
       (eww-lnum-browse-url (if edit
@@ -513,15 +521,28 @@ If EDIT, edit url before visiting."
   "Turn on link numbers, ask for one and execute appropriate action on it.
 If link - visit it; button - press; input - move to it.
 With prefix ARG visit link in new session.
+With `-' prefix ARG, visit in background.
 With double prefix ARG, prompt for url to visit.
 With triple prefix ARG, prompt for url and visit in new session."
   (interactive "p")
-  (let ((info (eww-lnum-get-action "Follow: ")))
+  (let* ((edit (or (or (< arg -1) (<= 16 arg))))
+         (new-buffer (or (= arg 4) (< 16 arg)))
+         (background (< arg 0))
+         (info (eww-lnum-get-action (format "%sollow%s%s: "
+                                            (if edit "Edit and f" "F")
+                                            (if new-buffer
+                                                " in new buffer"
+                                              "")
+                                            (if background
+                                                " in background"
+                                              "")))))
     (cond ((null info)
            (message "No valid anchor selected"))
           ((stringp (car info))         ; link
-           (eww-lnum-visit info (or (= arg 4) (< 16 arg))
-                           (<= 16 arg)))
+           (eww-lnum-visit info (if background
+                                    :background
+                                  new-buffer)
+                           edit))
           (t (eww-lnum-activate-form info)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
