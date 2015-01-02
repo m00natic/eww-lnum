@@ -1,8 +1,8 @@
 ;;; eww-lnum.el --- Conkeror-like functionality for eww  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2014 Andrey Kotlarski <m00naticus@gmail.com>
+;; Copyright (C) 2014-2015 Andrey Kotlarski <m00naticus@gmail.com>
 
-;; Version: 1.1
+;; Version: 1.2
 ;; Keywords: eww, browse, conkeror
 ;; Author: Andrey Kotlarski <m00naticus@gmail.com>
 ;; URL: https://github.com/m00natic/eww-lnum
@@ -297,9 +297,17 @@ Return list of selected number and last applied filter."
                 (scroll-up)
                 ;; scroll-up sets wrongly window-start/end
                 (redisplay))
-              #1=
-              (setq last-index (eww-lnum filter t)
-                    num (if (zerop last-index) 0 1)
+              (setq last-index (eww-lnum filter t))
+              (if (zerop last-index) ; filter left nothing
+                  (let* ((pmax (point-max))
+                         (pos (eww-lnum-next-filter ;search below
+                               'eww-lnum-next filter
+                               (min (window-end) pmax) pmax)))
+                    (when pos
+                      (goto-char pos)
+                      (redisplay)
+                      (setq last-index (eww-lnum filter t)))))
+              (setq num (if (zerop last-index) 0 1)
                     auto-num t
                     temp-prompt (eww-lnum-prompt-str num fun prompt
                                                      def-anchor
@@ -307,7 +315,21 @@ Return list of selected number and last applied filter."
              ((eq ch 'delete)		; scroll up
               (eww-lnum-remove-overlays)
               (scroll-down)
-              #1#)
+              (redisplay)
+              (setq last-index (eww-lnum filter t))
+              (if (zerop last-index) ; filter left nothing
+                  (let ((pos (eww-lnum-next-filter ;search above
+                              'eww-lnum-next filter
+                              (point-min) (window-start))))
+                    (when pos
+                      (goto-char pos)
+                      (redisplay)
+                      (setq last-index (eww-lnum filter t)))))
+              (setq num (if (zerop last-index) 0 1)
+                    auto-num t
+                    temp-prompt (eww-lnum-prompt-str num fun prompt
+                                                     def-anchor
+                                                     filter "")))
              ;; iteration options
              ((memq ch '(left up))
               (setq num (if (> num 1) (1- num)
